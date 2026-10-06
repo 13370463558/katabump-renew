@@ -57,3 +57,12 @@ jobs:
             gh run delete $run_id || true
           fi
         done
+
+    - name: 📤 上传关键步骤截图
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: katabump-renew-screenshots
+        path: screenshots/
+        if-no-files-found: ignore
+        retention-days: 14

@@ -15,6 +15,19 @@ TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN") or ""      # tg通知bot token(可
 
 BASE_URL = "https://dashboard.katabump.com"  # 网站链接
 
+SCREENSHOT_DIR = "screenshots"  # 关键步骤截图目录（CI 末尾作为 artifact 上传）
+
+
+def _shot(sb, filename: str):
+    """保存关键步骤截图到 screenshots/；任何异常都不影响主流程。"""
+    try:
+        os.makedirs(SCREENSHOT_DIR, exist_ok=True)
+        sb.save_screenshot(filename, folder=SCREENSHOT_DIR)
+        print(f"📸 截图: {SCREENSHOT_DIR}/{filename}")
+    except Exception as e:
+        print(f"⚠️ 截图失败 {filename}: {e}")
+
+
 #  Telegram 推送模块
 def send_tg_message(status_icon, status_text, time_left=""):
     if not TG_BOT_TOKEN or not TG_CHAT_ID:
@@ -274,8 +287,10 @@ def login(sb) -> bool:
             page_title = sb.get_title() or ""
             print(f"  当前 URL: {cur_url}")
             print(f"  当前标题: {page_title}")
-            sb.save_screenshot("login_load_fail.png")
+            _shot(sb, "login_load_fail.png")
             return False
+
+    _shot(sb, "01_login_page.png")
 
     print("🍪 关闭可能的 Cookie 弹窗...")
     try:
@@ -308,7 +323,7 @@ def login(sb) -> bool:
     if ts_found:
         if not handle_turnstile(sb):
             print("❌ 登录界面的 Turnstile 验证失败")
-            sb.save_screenshot("login_turnstile_fail.png")
+            _shot(sb, "login_turnstile_fail.png")
             return False
     else:
         print("ℹ️ 未检测到 Turnstile")
@@ -328,10 +343,11 @@ def login(sb) -> bool:
     page_title = sb.get_title() or ""
     if cur_url.startswith(f"{BASE_URL}/dashboard") or "Dashboard | KataBump" in page_title.lower():
         print(f"✅ 登录成功！(URL: {sb.get_current_url()}, Title: {page_title})")
+        _shot(sb, "02_login_success.png")
         return True
         
     print(f"❌ 登录失败，页面未跳转到账户页。(URL: {sb.get_current_url()}, Title: {page_title})")
-    sb.save_screenshot("login_failed.png")
+    _shot(sb, "login_failed.png")
     return False
 
 # ===== 自动续期流程 =====
@@ -349,6 +365,7 @@ def _goto_server_detail(sb) -> bool:
     """在 Dashboard 首页查找并点击 See 进入服务器详情页"""
     print("\n🖥️  正在进入服务器续期页...")
     time.sleep(5)
+    _shot(sb, "03_servers_page.png")
 
     # 检查页面顶部是否已有"还无法续期"全局提示
     alert_text = _read_alert(sb)
@@ -403,7 +420,7 @@ def _goto_server_detail(sb) -> bool:
                     print(f"       - [{txt}] -> {href}")
         except Exception:
             pass
-        sb.save_screenshot("servers_page_fail.png")
+        _shot(sb, "servers_page_fail.png")
         return False
 
     print("🖱️  点击 'See' 进入服务器详情页...")
@@ -440,6 +457,7 @@ def _open_renew_modal(sb) -> bool:
     try:
         sb.find_element('div.modal.show', timeout=5)
         print("✅ Renew 模态框已弹出")
+        _shot(sb, "04_renew_modal.png")
         return True
     except Exception:
         print("⚠️ 模态框未弹出")
@@ -571,6 +589,8 @@ def _check_renew_result(sb):
     if not alert_text:
         time.sleep(3)
         alert_text = _read_alert(sb)
+
+    _shot(sb, "05_result.png")
 
     if alert_text:
         print(f"📩 页面提示: {alert_text}")
